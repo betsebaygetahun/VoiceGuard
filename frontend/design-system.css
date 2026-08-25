@@ -1,0 +1,315 @@
+/* ============================================
+   VoiceGuard Design System
+   Inspired by: afriworket.com
+   Fonts: Playfair Display + Poppins
+   Primary: Rose/Crimson #f43f5e
+   ============================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Poppins:wght@300;400;500;600&display=swap');
+
+/* ── CSS Custom Properties ── */
+:root {
+  /* Typography */
+  --font-display: 'Playfair Display', 'Times New Roman', serif;
+  --font-body:    'Poppins', 'Arial', sans-serif;
+
+  /* Primary Palette — Rose/Crimson (from afriworket.com) */
+  --color-primary-50:  #fff1f2;
+  --color-primary-100: #ffe4e6;
+  --color-primary-200: #fecdd3;
+  --color-primary-300: #fda4af;
+  --color-primary-400: #fb7185;
+  --color-primary-500: #f43f5e;   /* ← main brand color */
+  --color-primary-600: #e11d48;
+  --color-primary-700: #be123c;
+  --color-primary-800: #9f1239;
+  --color-primary-900: #881337;
+
+  /* Neutral Gray Scale (from afriworket.com) */
+  --color-gray-50:  #f9fafb;
+  --color-gray-100: #f3f4f6;
+  --color-gray-200: #e5e7eb;
+  --color-gray-300: #d1d5db;
+  --color-gray-400: #9ca3af;
+  --color-gray-500: #6b7280;
+  --color-gray-600: #4b5563;
+  --color-gray-700: #374151;
+  --color-gray-800: #1f2937;
+  --color-gray-900: #111827;
+  --color-gray-950: #030712;
+
+  /* Risk Semantic Colors — VoiceGuard specific */
+  --risk-green:         #16a34a;
+  --risk-green-light:   #dcfce7;
+  --risk-green-mid:     #4ade80;
+  --risk-green-border:  #86efac;
+
+  --risk-yellow:        #d97706;
+  --risk-yellow-light:  #fef3c7;
+  --risk-yellow-mid:    #fbbf24;
+  --risk-yellow-border: #fcd34d;
+
+  --risk-red:           #f43f5e;    /* = primary-500 — intentional */
+  --risk-red-light:     #fff1f2;
+  --risk-red-mid:       #fb7185;
+  --risk-red-border:    #fda4af;
+
+  /* Layout Tokens */
+  --radius-xs:   4px;
+  --radius-sm:   6px;
+  --radius-md:   12px;
+  --radius-lg:   20px;
+  --radius-xl:   28px;
+  --radius-full: 9999px;
+
+  --shadow-sm:  0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md:  0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg:  0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl:  0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+
+  /* Transition */
+  --transition-fast:   150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow:   400ms ease;
+}
+
+/* ── Base Reset ── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--color-gray-900);
+  background-color: var(--color-gray-50);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Typography ── */
+h1, h2, h3, .display {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+h1 { font-size: clamp(28px, 5vw, 40px); }
+h2 { font-size: clamp(22px, 4vw, 30px); }
+h3 { font-size: clamp(18px, 3vw, 22px); }
+
+p, label, span {
+  font-family: var(--font-body);
+}
+
+/* ── App Shell ── */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: #fff;
+  border-bottom: 1px solid var(--color-gray-200);
+}
+
+.app-logo {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  font-style: italic;
+  color: var(--color-gray-900);
+}
+
+.app-logo .shield {
+  color: var(--color-primary-500);
+  margin-right: 6px;
+}
+
+/* ── Risk Meter ── */
+.risk-meter-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.risk-score {
+  font-family: var(--font-body);
+  font-size: 52px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.risk-label {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.risk-meter--green .risk-score { color: var(--risk-green); }
+.risk-meter--green .risk-label { color: var(--risk-green); }
+.risk-meter--yellow .risk-score { color: var(--risk-yellow); }
+.risk-meter--yellow .risk-label { color: var(--risk-yellow); }
+.risk-meter--red .risk-score { color: var(--risk-red); }
+.risk-meter--red .risk-label { color: var(--risk-red); }
+
+/* ── Transcript Card ── */
+.transcript-card {
+  background: #fff;
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+}
+
+.transcript-card h4 {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--color-gray-700);
+  margin-bottom: 12px;
+}
+
+.transcript-text {
+  font-size: 14px;
+  color: var(--color-gray-500);
+  line-height: 1.7;
+}
+
+.transcript-highlight {
+  background: var(--risk-yellow-light);
+  color: var(--risk-yellow);
+  border-radius: var(--radius-xs);
+  padding: 1px 4px;
+}
+
+/* ── Risk Signal Tags ── */
+.risk-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid;
+}
+
+.risk-tag--green {
+  background: var(--risk-green-light);
+  color: var(--risk-green);
+  border-color: var(--risk-green-border);
+}
+
+.risk-tag--yellow {
+  background: var(--risk-yellow-light);
+  color: var(--risk-yellow);
+  border-color: var(--risk-yellow-border);
+}
+
+.risk-tag--red {
+  background: var(--risk-red-light);
+  color: var(--risk-red);
+  border-color: var(--risk-red-border);
+}
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: var(--radius-full);
+  padding: 14px 28px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  text-decoration: none;
+}
+
+.btn-primary {
+  background: var(--color-primary-500);
+  color: #fff;
+  border-color: var(--color-primary-500);
+}
+
+.btn-primary:hover {
+  background: var(--color-primary-600);
+  border-color: var(--color-primary-600);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--color-primary-500);
+  border-color: var(--color-primary-500);
+}
+
+.btn-outline:hover {
+  background: var(--color-primary-50);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-gray-500);
+  border-color: transparent;
+}
+
+/* ── Waveform Bars ── */
+.waveform {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 40px;
+}
+
+.waveform-bar {
+  width: 4px;
+  background: var(--color-primary-400);
+  border-radius: 2px;
+  animation: wave 1.2s ease-in-out infinite;
+}
+
+@keyframes wave {
+  0%, 100% { height: 8px; }
+  50%       { height: 32px; }
+}
+
+/* ── Mic Pulse ── */
+@keyframes mic-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.4); }
+  70%  { box-shadow: 0 0 0 20px rgba(244, 63, 94, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
+}
+
+.mic-button {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: var(--color-primary-500);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: mic-pulse 2s ease-in-out infinite;
+  transition: transform var(--transition-normal);
+}
+
+.mic-button:hover {
+  transform: scale(1.05);
+}
+
+.mic-button.listening {
+  animation: mic-pulse 1s ease-in-out infinite;
+}
