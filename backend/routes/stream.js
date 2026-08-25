@@ -34,6 +34,16 @@ router.post('/stream', upload.single('chunk'), async (req, res) => {
         transcribeChunk(req.file.buffer),
         detectVoice(req.file.buffer)
       ]);
+
+      // ────────────────────────────────────────────────────────
+      // PRIVACY HARDENING (Day 20): Explicit audio discard.
+      // After both APIs have processed the chunk, immediately
+      // nullify the buffer reference so it can be garbage
+      // collected. No audio is ever written to disk.
+      req.file.buffer = null;
+      // ────────────────────────────────────────────────────────
+      console.log(`[Privacy] Chunk #${chunkCounter} audio buffer discarded from memory.`);
+
     } else {
       console.warn('[Stream] No audio file provided. Using empty fallbacks.');
       sttResult = { transcript: "No audio chunk received.", confidence: 0, latency_ms: 0 };
