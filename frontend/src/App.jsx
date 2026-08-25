@@ -4,32 +4,104 @@ import './index.css'
 function App() {
   const [pipelineState, setPipelineState] = useState(null)
   const [isListening, setIsListening] = useState(false)
+  const [micError, setMicError] = useState(null)
   
-  // Hardcoded endpoint (testing only)
+  const mediaRecorderRef = useRef(null)
+  const streamRef = useRef(null)
+  const recordingIntervalRef = useRef(null)
+
   const API_URL = 'http://localhost:3001/api/stream'
 
-  // Poll dummy backend
-  useEffect(() => {
-    let interval;
-    if (isListening) {
-      interval = setInterval(async () => {
-        try {
-          const formData = new FormData();
-          formData.append('chunk', new Blob(['test'], { type: 'audio/wav' }));
+  // Start the rolling chunk recording
+  const startRecording = async () => {
+    try {
+      setMicError(null)
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
+      setIsListening(true)
 
-          const res = await fetch(API_URL, {
-            method: 'POST',
-            body: formData
-          });
-          const data = await res.json();
-          setPipelineState(data);
-        } catch (err) {
-          console.error("Backend error:", err);
+      const startNewChunk = () => {
+        if (!streamRef.current) return;
+        
+        const recorder = new MediaRecorder(streamRef.current)
+        mediaRecorderRef.current = recorder
+        const audioChunks = []
+
+        recorder.ondataavailable = (event) => {
+          if (event.data.size > 0) audioChunks.push(event.data)
         }
-      }, 4000); // Poll every 4 seconds mimicking chunk
+
+        recorder.onstop = async () => {
+          if (audioChunks.length === 0) return
+          const audioBlob = new Blob(audioChunks, { type: 'audio/webm' })
+          await uploadChunk(audioBlob)
+        }
+
+        recorder.start()
+      }
+
+      // Start first chunk
+      startNewChunk()
+
+      // Stop current and start new every 4 seconds
+      recordingIntervalRef.current = setInterval(() => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+          mediaRecorderRef.current.stop() // triggers onstop, which uploads
+        }
+        startNewChunk() // immediately start the next one
+      }, 4000)
+
+    } catch (err) {
+      console.error("Mic access denied or error:", err)
+      setMicError("Microphone access denied. Please allow mic permissions.")
+      setIsListening(false)
     }
-    return () => clearInterval(interval);
-  }, [isListening]);
+  }
+
+  const stopRecording = () => {
+    setIsListening(false)
+    if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current)
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop()
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop())
+      streamRef.current = null
+    }
+  }
+
+  const uploadChunk = async (blob) => {
+    try {
+      const formData = new FormData()
+      formData.append('chunk', blob, 'chunk.webm')
+
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        body: formData
+      })
+      if (!res.ok) throw new Error('API Error')
+      const data = await res.json()
+      
+      // Only update if we are still listening, to prevent ghost updates after stopping
+      if (streamRef.current) {
+        setPipelineState(data)
+      }
+    } catch (err) {
+      console.error("Backend error:", err)
+    }
+  }
+
+  const toggleListen = () => {
+    if (isListening) stopRecording()
+    else startRecording()
+  }
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopRecording()
+    }
+  }, [])
 
   // Determine current screen state based on pipeline data
   const status = pipelineState?.fusion?.status || 'SAFE'
@@ -53,13 +125,14 @@ function App() {
         <div style={{ textAlign: 'center' }}>
            <button 
              className={`mic-button ${isListening ? 'listening' : ''}`}
-             onClick={() => setIsListening(!isListening)}
+             onClick={toggleListen}
            >
              🎤
            </button>
            <p style={{ marginTop: '12px', color: 'var(--color-gray-500)' }}>
-             {isListening ? 'Listening to call...' : 'Tap to simulate live call'}
+             {isListening ? 'Listening to call...' : 'Tap to start live monitoring'}
            </p>
+           {micError && <p style={{ color: 'var(--risk-red)', marginTop: '8px', fontSize: '14px' }}>{micError}</p>}
         </div>
 
         {pipelineState && (
@@ -74,7 +147,9 @@ function App() {
 
             <div className="transcript-card">
               <h4>Live Transcript</h4>
-              <p className="transcript-text">"{pipelineState.stt.transcript}"</p>
+              <p className="transcript-text">
+                {pipelineState.stt.transcript ? `"${pipelineState.stt.transcript}"` : <span style={{color: '#9ca3af', fontStyle: 'italic'}}>Silence...</span>}
+              </p>
               
               <div style={{ marginTop: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 {pipelineState.language_risk.tags.map(tag => (
