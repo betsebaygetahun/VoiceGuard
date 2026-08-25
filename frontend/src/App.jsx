@@ -151,9 +151,11 @@ function App() {
                 {pipelineState.stt.transcript ? `"${pipelineState.stt.transcript}"` : <span style={{color: '#9ca3af', fontStyle: 'italic'}}>Silence...</span>}
               </p>
               
-              <div style={{ marginTop: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {pipelineState.language_risk.tags.map(tag => (
-                  <span key={tag} className="risk-tag risk-tag--yellow">⚠ {tag}</span>
+              <div style={{ marginTop: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap', flexDirection: 'column' }}>
+                {pipelineState.language_risk.reasons && pipelineState.language_risk.reasons.map((reason, index) => (
+                  <span key={index} className="risk-tag risk-tag--yellow" style={{ textAlign: 'left' }}>
+                    ⚠ {reason}
+                  </span>
                 ))}
               </div>
             </div>
