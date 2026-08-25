@@ -1,288 +1,333 @@
 import { useState, useEffect, useRef } from 'react'
 import './index.css'
 
+// ---------------- Risk lexicon (v0.1, from Day 6 plan) ----------------
+const LEXICON = {
+  urgency: ["right now","immediately","hurry","quick","urgent","don't wait","act now","before it's too late","emergency","asap"],
+  secrecy: ["don't tell","keep this between us","don't tell anyone","secret","don't call anyone else","don't mention this"],
+  payment: ["gift card","wire transfer","send money","bitcoin","crypto","cash app","zelle","venmo","bank account number","routing number","western union"]
+};
+
+function scoreLanguage(text){
+  const lower = text.toLowerCase();
+  const hits = {urgency:[], secrecy:[], payment:[]};
+  for(const cat in LEXICON){
+    for(const phrase of LEXICON[cat]){
+      if(lower.includes(phrase)) hits[cat].push(phrase);
+    }
+  }
+  const catCount = Object.values(hits).filter(a=>a.length>0).length;
+  let base = 0;
+  base += hits.urgency.length * 12;
+  base += hits.secrecy.length * 18;
+  base += hits.payment.length * 20;
+  if(catCount >= 2) base += 20;
+  if(catCount >= 3) base += 15;
+  return {score: Math.min(base, 100), hits};
+}
+
+function fuseScore(languageScore, authenticityRiskScore){
+  const fused = (languageScore * 0.55) + (authenticityRiskScore * 0.45);
+  return Math.round(Math.min(fused, 100));
+}
+
+function bandFor(score){
+  if(score >= 60) return "red";
+  if(score >= 30) return "yellow";
+  return "green";
+}
+
 function App() {
-  const [pipelineState, setPipelineState] = useState(null)
-  const [isListening, setIsListening] = useState(false)
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [micError, setMicError] = useState(null)
-  const [isDemoMode, setIsDemoMode] = useState(false)
-  const [demoStep, setDemoStep] = useState(0)
-  const [demoDone, setDemoDone] = useState(false)
+  const [listening, setListening] = useState(false)
+  const [simState, setSimState] = useState("real")
+  const [fullTranscript, setFullTranscript] = useState("")
+  const [interimTranscript, setInterimTranscript] = useState("")
+  const [errorMsg, setErrorMsg] = useState(null)
+  
+  const [scoreData, setScoreData] = useState({ fused: 0, hits: {urgency:[], secrecy:[], payment:[]} })
+  
+  const canvasRef = useRef(null)
+  const recognitionRef = useRef(null)
+  const audioCtxRef = useRef(null)
+  const analyserRef = useRef(null)
+  const micStreamRef = useRef(null)
+  const animationIdRef = useRef(null)
+  const isListeningRef = useRef(false) // for inside callbacks
+  const transcriptBoxRef = useRef(null)
 
-  const mediaRecorderRef = useRef(null)
-  const streamRef = useRef(null)
-  const recordingIntervalRef = useRef(null)
-  const demoIntervalRef = useRef(null)
+  // Combined transcript for processing
+  const combinedText = (fullTranscript + " " + interimTranscript).trim()
 
-  const API_URL = 'http://localhost:3001/api/stream'
-  const DEMO_RESET_URL = 'http://localhost:3001/api/demo/reset'
-  const DEMO_NEXT_URL = 'http://localhost:3001/api/demo/next'
+  // Run fusion whenever transcript or sim state changes
+  useEffect(() => {
+    const {score: langScore, hits} = scoreLanguage(combinedText);
+    const authRisk = simState === "fake" ? 85 : 8; 
+    const fused = fuseScore(langScore, authRisk);
+    setScoreData({ fused, hits })
+  }, [combinedText, simState])
 
-  const startRecording = async () => {
-    try {
-      setMicError(null)
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      streamRef.current = stream
-      setIsListening(true)
-
-      const startNewChunk = () => {
-        if (!streamRef.current) return
-        const recorder = new MediaRecorder(streamRef.current)
-        mediaRecorderRef.current = recorder
-        const audioChunks = []
-
-        recorder.ondataavailable = (e) => {
-          if (e.data.size > 0) audioChunks.push(e.data)
-        }
-
-        recorder.onstop = async () => {
-          if (audioChunks.length === 0) return
-          const blob = new Blob(audioChunks, { type: 'audio/webm' })
-          setIsProcessing(true)
-          await uploadChunk(blob)
-          setIsProcessing(false)
-        }
-
-        recorder.start()
+  // Setup canvas resizing
+  useEffect(() => {
+    const resizeCanvas = () => {
+      if(canvasRef.current){
+        canvasRef.current.width = canvasRef.current.clientWidth * window.devicePixelRatio;
+        canvasRef.current.height = canvasRef.current.clientHeight * window.devicePixelRatio;
       }
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+    return () => window.removeEventListener('resize', resizeCanvas)
+  }, [])
 
-      startNewChunk()
-      recordingIntervalRef.current = setInterval(() => {
-        if (mediaRecorderRef.current?.state === 'recording') {
-          mediaRecorderRef.current.stop()
+  // Auto-scroll transcript
+  useEffect(() => {
+    if(transcriptBoxRef.current) {
+      transcriptBoxRef.current.scrollTop = transcriptBoxRef.current.scrollHeight;
+    }
+  }, [combinedText])
+
+  const setupRecognition = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!SR){
+      setErrorMsg("Speech recognition isn't supported in this browser. Try Chrome or Edge on desktop.");
+      return null;
+    }
+    const rec = new SR();
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = 'en-US';
+
+    rec.onresult = (event) => {
+      let interim = "";
+      let finalStr = "";
+      for(let i = event.resultIndex; i < event.results.length; i++){
+        const chunk = event.results[i][0].transcript;
+        if(event.results[i].isFinal){
+          finalStr += chunk + " ";
+        } else {
+          interim += chunk;
         }
-        startNewChunk()
-      }, 4000)
-
-    } catch (err) {
-      setMicError('Microphone access denied. Please allow mic permissions.')
-      setIsListening(false)
-    }
-  }
-
-  const stopRecording = () => {
-    setIsListening(false)
-    setPipelineState(null)
-    if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current)
-    if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop()
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop())
-      streamRef.current = null
-    }
-  }
-
-  // ── Demo Mode ──
-  const startDemo = async () => {
-    await fetch(DEMO_RESET_URL)
-    setIsDemoMode(true)
-    setIsListening(true)
-    setDemoStep(0)
-    setDemoDone(false)
-    setPipelineState(null)
-
-    // Advance one step every 4 seconds
-    const advance = async () => {
-      setIsProcessing(true)
-      const res = await fetch(DEMO_NEXT_URL)
-      const data = await res.json()
-      setIsProcessing(false)
-      if (data.done) {
-        setDemoDone(true)
-        setIsListening(false)
-        clearInterval(demoIntervalRef.current)
-        return
       }
-      setDemoStep(data.step)
-      setPipelineState(data)
+      if (finalStr) {
+        setFullTranscript(prev => prev + finalStr)
+      }
+      setInterimTranscript(interim)
+    };
+
+    rec.onerror = (e) => {
+      console.log('Speech recognition error:', e.error);
+      if(e.error === 'not-allowed'){
+        setErrorMsg("Mic permission denied");
+      }
+    };
+
+    rec.onend = () => {
+      if(isListeningRef.current){
+        try{ rec.start(); }catch(e){}
+      }
+    };
+
+    return rec;
+  }
+
+  const startMic = async () => {
+    try{
+      micStreamRef.current = await navigator.mediaDevices.getUserMedia({audio:true});
+      setErrorMsg(null)
+    }catch(e){
+      setErrorMsg("Mic permission denied");
+      return false;
     }
-
-    await advance() // Show first step immediately
-    demoIntervalRef.current = setInterval(advance, 4000)
+    audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioCtxRef.current.createMediaStreamSource(micStreamRef.current);
+    analyserRef.current = audioCtxRef.current.createAnalyser();
+    analyserRef.current.fftSize = 256;
+    source.connect(analyserRef.current);
+    
+    // resize again to be sure
+    if(canvasRef.current){
+      canvasRef.current.width = canvasRef.current.clientWidth * window.devicePixelRatio;
+      canvasRef.current.height = canvasRef.current.clientHeight * window.devicePixelRatio;
+    }
+    drawWave();
+    return true;
   }
 
-  const stopDemo = () => {
-    clearInterval(demoIntervalRef.current)
-    setIsDemoMode(false)
-    setIsListening(false)
-    setDemoStep(0)
-    setDemoDone(false)
-    setPipelineState(null)
+  const drawWave = () => {
+    if(!analyserRef.current || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx2d = canvas.getContext('2d');
+    const bufferLength = analyserRef.current.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    
+    const loop = () => {
+      animationIdRef.current = requestAnimationFrame(loop);
+      analyserRef.current.getByteFrequencyData(dataArray);
+      ctx2d.clearRect(0,0,canvas.width,canvas.height);
+      const barWidth = (canvas.width / bufferLength) * 1.6;
+      let x = 0;
+      for(let i=0;i<bufferLength;i++){
+        const v = dataArray[i] / 255;
+        const barHeight = v * canvas.height;
+        const hue = isListeningRef.current ? '79,209,197' : '90,96,112';
+        ctx2d.fillStyle = `rgba(${hue},${0.35 + v*0.5})`;
+        ctx2d.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+        x += barWidth + 2;
+      }
+    }
+    loop();
   }
 
-  const uploadChunk = async (blob) => {
-    try {
-      const formData = new FormData()
-      formData.append('chunk', blob, 'chunk.webm')
-      const res = await fetch(API_URL, { method: 'POST', body: formData })
-      if (!res.ok) throw new Error('API Error')
-      const data = await res.json()
-      if (streamRef.current) setPipelineState(data)
-    } catch (err) {
-      console.error('Backend error:', err)
+  const stopMic = () => {
+    if(animationIdRef.current) cancelAnimationFrame(animationIdRef.current);
+    if(micStreamRef.current) micStreamRef.current.getTracks().forEach(t=>t.stop());
+    if(audioCtxRef.current) audioCtxRef.current.close();
+    if(canvasRef.current) {
+        const ctx2d = canvasRef.current.getContext('2d');
+        ctx2d.clearRect(0,0,canvasRef.current.width,canvasRef.current.height);
     }
   }
 
-  useEffect(() => () => stopRecording(), [])
+  const toggleListen = async () => {
+    if(!listening){
+      isListeningRef.current = true;
+      const ok = await startMic();
+      if(!ok) {
+          isListeningRef.current = false;
+          return;
+      }
+      if(!recognitionRef.current) recognitionRef.current = setupRecognition();
+      if(recognitionRef.current){
+        try{ recognitionRef.current.start(); }catch(e){}
+      }
+      setListening(true);
+    } else {
+      isListeningRef.current = false;
+      setListening(false);
+      if(recognitionRef.current){ try{ recognitionRef.current.stop(); }catch(e){} }
+      stopMic();
+    }
+  }
 
-  const status = pipelineState?.fusion?.status || 'SAFE'
-  const riskColor = status === 'SAFE' ? 'green' : status === 'CAUTION' ? 'yellow' : 'red'
-  const isDegraded = pipelineState?.voice_auth?.label === 'error' || pipelineState?.voice_auth?.label === 'unknown'
+  const resetSession = () => {
+    setFullTranscript("");
+    setInterimTranscript("");
+    setScoreData({ fused: 0, hits: {urgency:[], secrecy:[], payment:[]} })
+  }
+
+  // Render helpers
+  const renderHighlightedTranscript = () => {
+    if(!combinedText) return <span className="empty">Transcript will appear here once you start listening and speak…</span>
+    
+    let html = combinedText;
+    const allPhrases = [...scoreData.hits.urgency, ...scoreData.hits.secrecy, ...scoreData.hits.payment].sort((a,b)=>b.length-a.length);
+    for(const phrase of allPhrases){
+      const re = new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'gi');
+      html = html.replace(re, m => `<mark>${m}</mark>`);
+    }
+    return <span dangerouslySetInnerHTML={{__html: html}} />
+  }
+  
+  const getTags = () => {
+    const tags = [];
+    if(scoreData.hits.urgency.length) tags.push(`⏱ urgency language (${scoreData.hits.urgency.length})`);
+    if(scoreData.hits.secrecy.length) tags.push(`🤫 secrecy language (${scoreData.hits.secrecy.length})`);
+    if(scoreData.hits.payment.length) tags.push(`💳 payment request (${scoreData.hits.payment.length})`);
+    if(simState === "fake") tags.push(`🤖 voice flagged as likely synthetic`);
+    return tags;
+  }
+
+  const band = bandFor(scoreData.fused);
+  
+  let meterProps = { color: 'var(--green)', label: 'LOW RISK', bg: 'var(--green-bg)' }
+  if (band === 'red') meterProps = { color: 'var(--red)', label: 'HIGH RISK', bg: 'var(--red-bg)' }
+  else if (band === 'yellow') meterProps = { color: 'var(--amber)', label: 'ELEVATED', bg: 'var(--amber-bg)' }
+
+  const wordCount = combinedText.split(/\s+/).filter(Boolean).length;
 
   return (
-    <div className="app-container">
+    <div className="wrap">
 
-      {/* ── Header ── */}
-      <header className="app-header">
-        <h1 className="app-logo">
-          <span className="shield">🛡️</span> VoiceGuard
-        </h1>
-        {isListening && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {isProcessing && (
-              <span style={{
-                width: '8px', height: '8px', borderRadius: '50%',
-                backgroundColor: '#f59e0b', display: 'inline-block',
-                animation: 'pulse 1s infinite'
-              }} />
-            )}
-            <span className={`risk-tag risk-tag--${riskColor}`}>
-              {status}
-            </span>
+      <header>
+        <div className="brand">
+          <div className="brand-mark">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 3C10.3 3 9 4.3 9 6v6c0 1.7 1.3 3 3 3s3-1.3 3-3V6c0-1.7-1.3-3-3-3z" fill="#0a1512"/><path d="M5 11a7 7 0 0 0 14 0M12 20v2" stroke="#0a1512" stroke-width="1.8" strokeLinecap="round"/></svg>
           </div>
-        )}
+          <div>
+            <div className="brand-name">VoiceGuard</div>
+            <div className="brand-sub">Live call risk monitor · Local Build</div>
+          </div>
+        </div>
+        <div className="status-pill">
+          <div className={`status-dot ${listening ? 'live' : ''}`}></div>
+          <span>{errorMsg ? errorMsg : listening ? "Listening…" : "Idle — mic off"}</span>
+        </div>
       </header>
 
-      {/* ── Main ── */}
-      <main className="main-content">
-
-        {/* Mic + Demo Buttons */}
-        <div style={{ textAlign: 'center', paddingTop: '8px' }}>
-          <button
-            className={`mic-button ${isListening && !isDemoMode ? 'listening' : ''}`}
-            onClick={() => isListening && !isDemoMode ? stopRecording() : !isListening && !isDemoMode ? startRecording() : null}
-            disabled={isDemoMode}
-            aria-label={isListening ? 'Stop monitoring' : 'Start monitoring'}
-            style={{ opacity: isDemoMode ? 0.4 : 1 }}
-          >
-            {isListening && !isDemoMode ? '⏹' : '🎤'}
-          </button>
-
-          <p style={{ marginTop: '16px', fontSize: '14px', color: 'rgba(255,255,255,0.5)', fontWeight: 500 }}>
-            {isProcessing
-              ? '⏳ Analyzing chunk...'
-              : isDemoMode && demoDone
-              ? '✅ Demo complete — click Reset to replay'
-              : isDemoMode
-              ? `🎬 Demo — Step ${demoStep} of 3`
-              : isListening
-              ? 'Listening to live call...'
-              : 'Tap mic to start monitoring'}
-          </p>
-
-          {micError && (
-            <p style={{ marginTop: '10px', color: '#f43f5e', fontSize: '13px' }}>⚠ {micError}</p>
-          )}
-
-          {/* Demo Mode Controls */}
-          <div style={{ marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            {!isDemoMode ? (
-              <button
-                onClick={startDemo}
-                disabled={isListening}
-                style={{
-                  padding: '10px 22px', borderRadius: '999px', border: '1px solid rgba(99,102,241,0.5)',
-                  background: 'rgba(99,102,241,0.1)', color: '#a5b4fc', cursor: 'pointer',
-                  fontSize: '13px', fontWeight: 600, fontFamily: 'inherit',
-                  opacity: isListening ? 0.4 : 1
-                }}
-              >
-                🎬 Run Guided Demo
-              </button>
-            ) : (
-              <button
-                onClick={stopDemo}
-                style={{
-                  padding: '10px 22px', borderRadius: '999px', border: '1px solid rgba(244,63,94,0.4)',
-                  background: 'rgba(244,63,94,0.1)', color: '#fda4af', cursor: 'pointer',
-                  fontSize: '13px', fontWeight: 600, fontFamily: 'inherit'
-                }}
-              >
-                ✕ Stop Demo
-              </button>
-            )}
+      <div className="panel">
+        <div className="hero">
+          <div className="wave-box">
+            <div className="wave-label"><span>MIC INPUT</span><span>{listening ? 'live' : 'off'}</span></div>
+            <canvas ref={canvasRef} id="waveCanvas"></canvas>
+          </div>
+          <div className="meter-box">
+            <div className="meter-ring" style={{ '--pct': scoreData.fused, '--ring-color': meterProps.color }}>
+              <div className="meter-inner">
+                <div className="meter-score">{scoreData.fused}</div>
+                <div className="meter-tag">risk score</div>
+              </div>
+            </div>
+            <div className="meter-band" style={{ background: meterProps.bg, color: meterProps.color }}>
+              {meterProps.label}
+            </div>
           </div>
         </div>
 
-        {/* Risk Meter */}
-        {pipelineState && (
-          <div className={`risk-meter-container risk-meter--${riskColor} animate-fade-up`}>
-            {/* Score Arc Label */}
-            <div style={{ fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginBottom: '4px' }}>
-              Risk Score
-            </div>
-            <div className="risk-score">
-              {pipelineState.fusion.total_risk_score}
-            </div>
-            <div className="risk-label">{status}</div>
-            <div style={{
-              marginTop: '10px',
-              fontSize: '11px',
-              color: 'rgba(255,255,255,0.3)',
-              display: 'flex',
-              gap: '16px'
-            }}>
-              <span>🎙 STT {pipelineState.stt.latency_ms}ms</span>
-              <span>🔊 Auth {pipelineState.voice_auth.latency_ms}ms</span>
-              <span>⚡ Total {pipelineState.fusion.total_latency_ms}ms</span>
-            </div>
-          </div>
-        )}
-
-        {/* Live Transcript */}
-        {pipelineState && (
-          <div className="transcript-card animate-fade-up">
-            <h4>Live Transcript</h4>
-            <p className="transcript-text">
-              {pipelineState.stt.transcript
-                ? `"${pipelineState.stt.transcript}"`
-                : <span style={{ color: 'rgba(255,255,255,0.25)', fontStyle: 'normal' }}>Silence detected...</span>
-              }
-            </p>
-
-            {pipelineState.language_risk.reasons?.length > 0 && (
-              <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {pipelineState.language_risk.reasons.map((reason, i) => (
-                  <span key={i} className="risk-tag risk-tag--yellow">
-                    ⚠ {reason}
-                  </span>
-                ))}
-              </div>
+        <div className="controls">
+          <button className={listening ? "danger-active" : "primary"} onClick={toggleListen} disabled={!!errorMsg && !listening}>
+            {listening ? (
+               <>⏹ Stop listening</>
+            ) : (
+               <><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 3C10.3 3 9 4.3 9 6v6c0 1.7 1.3 3 3 3s3-1.3 3-3V6c0-1.7-1.3-3-3-3z" fill="currentColor"/><path d="M5 11a7 7 0 0 0 14 0M12 20v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg> Start listening</>
             )}
+          </button>
+          <button onClick={resetSession}>Reset session</button>
+          <div className="sim-group">
+            <button className={simState === 'real' ? 'active' : ''} onClick={()=>setSimState('real')}>🎙 Simulate: real voice</button>
+            <button className={simState === 'fake' ? 'active' : ''} onClick={()=>setSimState('fake')}>🤖 Simulate: synthetic voice</button>
           </div>
-        )}
+        </div>
+        <div className="note">
+          Voice-authenticity detection is simulated today with the toggle above — this stands in for the real deepfake-detection API, which gets wired in next. Speech-to-text is live and real, running in your browser.
+        </div>
+      </div>
 
-        {/* Degraded Mode Banner */}
-        {pipelineState && isDegraded && (
-          <div className="degradation-banner animate-fade-up">
-            ⚠️ <strong>Reduced Confidence Mode</strong> — One or more AI services are unreachable. Relying on local keyword analysis only.
+      <div className="panel">
+        <div className="section-title">Live transcript <small>{wordCount > 0 ? `${wordCount} words transcribed` : 'no speech yet'}</small></div>
+        <div className="transcript-box" ref={transcriptBoxRef}>
+            {renderHighlightedTranscript()}
+        </div>
+        <div className="tags">
+            {getTags().length > 0 ? getTags().map((tag, i) => (
+                <span key={i} className="tag">{tag}</span>
+            )) : <span className="tag empty-tag">no risk patterns detected yet</span>}
+        </div>
+      </div>
+
+      <div className={`verify-banner ${band === 'red' ? 'show' : ''}`}>
+        <div className="verify-icon">⚠️</div>
+        <div>
+          <div className="verify-title">High risk detected — verify before you act</div>
+          <div className="verify-body">This call shows strong signs of a voice-cloning scam pattern: urgency, secrecy, or a payment request paired with a synthetic-sounding voice. Don't act on what you just heard until you've confirmed it's really them.</div>
+          <div className="verify-actions">
+            <button>📞 Call back on a saved number</button>
+            <button>🔑 Ask for the family code word</button>
           </div>
-        )}
+        </div>
+      </div>
 
-        {/* High Risk CTA */}
-        {pipelineState && status === 'HIGH RISK' && (
-          <div className="high-risk-actions animate-fade-up">
-            <p>🚨 Suspected AI voice scam detected. Take action:</p>
-            <button className="btn btn-primary">📞 Call Back on Known Number</button>
-            <button className="btn btn-outline">🔑 Use Your Family Code Word</button>
-          </div>
-        )}
-
-      </main>
-
-      {/* ── Privacy Footer ── */}
-      <footer className="privacy-footer">
-        <p>🔒 <strong style={{ color: 'rgba(255,255,255,0.5)' }}>Privacy First</strong> — Audio is processed in volatile memory only and instantly discarded after analysis. Nothing is stored.</p>
+      <footer>
+        VoiceGuard prototype · <span className="footer-flag">Day 1</span> · Speech-to-text: live browser API · Voice authenticity: simulated placeholder · Chrome/Edge recommended for mic transcription
       </footer>
 
     </div>
