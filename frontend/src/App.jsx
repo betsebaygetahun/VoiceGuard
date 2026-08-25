@@ -334,7 +334,7 @@ function App() {
           </div>
           <div>
             <div className="brand-name">VoiceGuard</div>
-            <div className="brand-sub">Live call risk monitor · Day 27 Backend Connected</div>
+            <div className="brand-sub">Live call risk monitor ·</div>
           </div>
         </div>
         <div className="status-pill">
