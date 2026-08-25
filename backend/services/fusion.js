@@ -37,6 +37,13 @@ function calculateFusion(transcript, voiceAuthScore, chunkId) {
     status = "CAUTION";
   }
 
+  // Failsafe Override: If Resemble AI is highly confident the voice is fake,
+  // override the formula and flag HIGH RISK immediately, even if language is normal.
+  if (voiceAuthScore > 85) {
+    status = "HIGH RISK";
+    if (totalRiskScore < 66) totalRiskScore = 66; // Bump score visually into the red
+  }
+
   // 4. Return formatted response
   return {
     chunk_id: chunkId,
