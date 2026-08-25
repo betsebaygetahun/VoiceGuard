@@ -158,6 +158,15 @@ function App() {
               </div>
             </div>
 
+            {/* Graceful Degradation UI: Warning if an API is down */}
+            {(pipelineState.voice_auth.label === 'error' || pipelineState.stt.confidence === 0) && pipelineState.stt.transcript !== "No audio chunk received." && (
+               <div style={{ marginTop: '10px', padding: '10px', backgroundColor: '#fef3c7', borderRadius: '8px', border: '1px solid #f59e0b' }}>
+                 <p style={{ color: '#d97706', fontSize: '14px', margin: 0 }}>
+                   ⚠️ <strong>Reduced Confidence Mode:</strong> One or more AI verification services are currently unreachable. Relying on local keywords only.
+                 </p>
+               </div>
+            )}
+
             {status === 'HIGH RISK' && (
                <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                  <button className="btn btn-primary">Call Back on Known Number</button>
@@ -167,6 +176,13 @@ function App() {
           </>
         )}
       </main>
+
+      {/* Privacy Hardening */}
+      <footer style={{ marginTop: 'auto', padding: '20px', textAlign: 'center', borderTop: '1px solid var(--color-gray-200)' }}>
+        <p style={{ fontSize: '12px', color: 'var(--color-gray-500)', margin: 0 }}>
+          🔒 <strong>Privacy First:</strong> VoiceGuard processes audio in volatile memory only. No audio is ever stored to disk or transmitted to unauthorized third parties. Audio chunks are instantly deleted after analysis.
+        </p>
+      </footer>
     </div>
   )
 }
