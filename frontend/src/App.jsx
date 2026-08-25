@@ -4,16 +4,15 @@ import './index.css'
 function App() {
   const [pipelineState, setPipelineState] = useState(null)
   const [isListening, setIsListening] = useState(false)
-  const [isProcessing, setIsProcessing] = useState(false) // BUG-01 fix: track chunk processing
+  const [isProcessing, setIsProcessing] = useState(false)
   const [micError, setMicError] = useState(null)
-  
+
   const mediaRecorderRef = useRef(null)
   const streamRef = useRef(null)
   const recordingIntervalRef = useRef(null)
 
   const API_URL = 'http://localhost:3001/api/stream'
 
-  // Start the rolling chunk recording
   const startRecording = async () => {
     try {
       setMicError(null)
@@ -22,53 +21,47 @@ function App() {
       setIsListening(true)
 
       const startNewChunk = () => {
-        if (!streamRef.current) return;
-        
+        if (!streamRef.current) return
         const recorder = new MediaRecorder(streamRef.current)
         mediaRecorderRef.current = recorder
         const audioChunks = []
 
-        recorder.ondataavailable = (event) => {
-          if (event.data.size > 0) audioChunks.push(event.data)
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0) audioChunks.push(e.data)
         }
 
         recorder.onstop = async () => {
           if (audioChunks.length === 0) return
-          const audioBlob = new Blob(audioChunks, { type: 'audio/webm' })
-          setIsProcessing(true) // BUG-01 fix: signal chunk is in flight
-          await uploadChunk(audioBlob)
+          const blob = new Blob(audioChunks, { type: 'audio/webm' })
+          setIsProcessing(true)
+          await uploadChunk(blob)
           setIsProcessing(false)
         }
 
         recorder.start()
       }
 
-      // Start first chunk
       startNewChunk()
-
-      // Stop current and start new every 4 seconds
       recordingIntervalRef.current = setInterval(() => {
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-          mediaRecorderRef.current.stop() // triggers onstop, which uploads
+        if (mediaRecorderRef.current?.state === 'recording') {
+          mediaRecorderRef.current.stop()
         }
-        startNewChunk() // immediately start the next one
+        startNewChunk()
       }, 4000)
 
     } catch (err) {
-      console.error("Mic access denied or error:", err)
-      setMicError("Microphone access denied. Please allow mic permissions.")
+      setMicError('Microphone access denied. Please allow mic permissions.')
       setIsListening(false)
     }
   }
 
   const stopRecording = () => {
     setIsListening(false)
+    setPipelineState(null)
     if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current)
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      mediaRecorderRef.current.stop()
-    }
+    if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop()
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop())
+      streamRef.current.getTracks().forEach(t => t.stop())
       streamRef.current = null
     }
   }
@@ -77,128 +70,144 @@ function App() {
     try {
       const formData = new FormData()
       formData.append('chunk', blob, 'chunk.webm')
-
-      const res = await fetch(API_URL, {
-        method: 'POST',
-        body: formData
-      })
+      const res = await fetch(API_URL, { method: 'POST', body: formData })
       if (!res.ok) throw new Error('API Error')
       const data = await res.json()
-      
-      // Only update if we are still listening, to prevent ghost updates after stopping
-      if (streamRef.current) {
-        setPipelineState(data)
-      }
+      if (streamRef.current) setPipelineState(data)
     } catch (err) {
-      console.error("Backend error:", err)
+      console.error('Backend error:', err)
     }
   }
 
-  const toggleListen = () => {
-    if (isListening) stopRecording()
-    else startRecording()
-  }
+  useEffect(() => () => stopRecording(), [])
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      stopRecording()
-    }
-  }, [])
-
-  // Determine current screen state based on pipeline data
   const status = pipelineState?.fusion?.status || 'SAFE'
-  
+  const riskColor = status === 'SAFE' ? 'green' : status === 'CAUTION' ? 'yellow' : 'red'
+  const isDegraded = pipelineState?.voice_auth?.label === 'error' || pipelineState?.voice_auth?.label === 'unknown'
+
   return (
     <div className="app-container">
+
+      {/* ── Header ── */}
       <header className="app-header">
-        <h1 className="app-logo"><span className="shield">🛡️</span> VoiceGuard</h1>
+        <h1 className="app-logo">
+          <span className="shield">🛡️</span> VoiceGuard
+        </h1>
         {isListening && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {/* BUG-01 fix: show pulsing dot while processing instead of flickering the whole UI */}
             {isProcessing && (
               <span style={{
                 width: '8px', height: '8px', borderRadius: '50%',
-                backgroundColor: '#f59e0b',
-                display: 'inline-block',
+                backgroundColor: '#f59e0b', display: 'inline-block',
                 animation: 'pulse 1s infinite'
-              }} title="Analyzing chunk..." />
+              }} />
             )}
-            <span className={`risk-tag risk-tag--${
-              status === 'SAFE' ? 'green' : 
-              status === 'CAUTION' ? 'yellow' : 'red'
-            }`}>
+            <span className={`risk-tag risk-tag--${riskColor}`}>
               {status}
             </span>
           </div>
         )}
       </header>
-      
-      <main className="main-content" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        
-        <div style={{ textAlign: 'center' }}>
-           <button 
-             className={`mic-button ${isListening ? 'listening' : ''}`}
-             onClick={toggleListen}
-           >
-             🎤
-           </button>
-           <p style={{ marginTop: '12px', color: 'var(--color-gray-500)' }}>
-             {isProcessing ? '⏳ Analyzing chunk...' : isListening ? 'Listening to call...' : 'Tap to start live monitoring'}
-           </p>
-           {micError && <p style={{ color: 'var(--risk-red)', marginTop: '8px', fontSize: '14px' }}>{micError}</p>}
+
+      {/* ── Main ── */}
+      <main className="main-content">
+
+        {/* Mic Button Section */}
+        <div style={{ textAlign: 'center', paddingTop: '8px' }}>
+          <button
+            className={`mic-button ${isListening ? 'listening' : ''}`}
+            onClick={() => isListening ? stopRecording() : startRecording()}
+            aria-label={isListening ? 'Stop monitoring' : 'Start monitoring'}
+          >
+            {isListening ? '⏹' : '🎤'}
+          </button>
+
+          <p style={{ marginTop: '16px', fontSize: '14px', color: 'rgba(255,255,255,0.5)', fontWeight: 500 }}>
+            {isProcessing
+              ? '⏳ Analyzing chunk...'
+              : isListening
+              ? 'Listening to live call...'
+              : 'Tap to start live monitoring'}
+          </p>
+
+          {micError && (
+            <p style={{ marginTop: '10px', color: '#f43f5e', fontSize: '13px' }}>
+              ⚠ {micError}
+            </p>
+          )}
         </div>
 
+        {/* Risk Meter */}
         {pipelineState && (
-          <>
-            <div className={`risk-meter-container risk-meter--${
-              status === 'SAFE' ? 'green' : 
-              status === 'CAUTION' ? 'yellow' : 'red'
-            }`}>
-              <div className="risk-score">{pipelineState.fusion.total_risk_score}</div>
-              <div className="risk-label">{status}</div>
+          <div className={`risk-meter-container risk-meter--${riskColor} animate-fade-up`}>
+            {/* Score Arc Label */}
+            <div style={{ fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginBottom: '4px' }}>
+              Risk Score
             </div>
+            <div className="risk-score">
+              {pipelineState.fusion.total_risk_score}
+            </div>
+            <div className="risk-label">{status}</div>
+            <div style={{
+              marginTop: '10px',
+              fontSize: '11px',
+              color: 'rgba(255,255,255,0.3)',
+              display: 'flex',
+              gap: '16px'
+            }}>
+              <span>🎙 STT {pipelineState.stt.latency_ms}ms</span>
+              <span>🔊 Auth {pipelineState.voice_auth.latency_ms}ms</span>
+              <span>⚡ Total {pipelineState.fusion.total_latency_ms}ms</span>
+            </div>
+          </div>
+        )}
 
-            <div className="transcript-card">
-              <h4>Live Transcript</h4>
-              <p className="transcript-text">
-                {pipelineState.stt.transcript ? `"${pipelineState.stt.transcript}"` : <span style={{color: '#9ca3af', fontStyle: 'italic'}}>Silence...</span>}
-              </p>
-              
-              <div style={{ marginTop: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap', flexDirection: 'column' }}>
-                {pipelineState.language_risk.reasons && pipelineState.language_risk.reasons.map((reason, index) => (
-                  <span key={index} className="risk-tag risk-tag--yellow" style={{ textAlign: 'left' }}>
+        {/* Live Transcript */}
+        {pipelineState && (
+          <div className="transcript-card animate-fade-up">
+            <h4>Live Transcript</h4>
+            <p className="transcript-text">
+              {pipelineState.stt.transcript
+                ? `"${pipelineState.stt.transcript}"`
+                : <span style={{ color: 'rgba(255,255,255,0.25)', fontStyle: 'normal' }}>Silence detected...</span>
+              }
+            </p>
+
+            {pipelineState.language_risk.reasons?.length > 0 && (
+              <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {pipelineState.language_risk.reasons.map((reason, i) => (
+                  <span key={i} className="risk-tag risk-tag--yellow">
                     ⚠ {reason}
                   </span>
                 ))}
               </div>
-            </div>
-
-            {/* Graceful Degradation UI: Warning if an API is down */}
-            {(pipelineState.voice_auth.label === 'error' || pipelineState.stt.confidence === 0) && pipelineState.stt.transcript !== "No audio chunk received." && (
-               <div style={{ marginTop: '10px', padding: '10px', backgroundColor: '#fef3c7', borderRadius: '8px', border: '1px solid #f59e0b' }}>
-                 <p style={{ color: '#d97706', fontSize: '14px', margin: 0 }}>
-                   ⚠️ <strong>Reduced Confidence Mode:</strong> One or more AI verification services are currently unreachable. Relying on local keywords only.
-                 </p>
-               </div>
             )}
-
-            {status === 'HIGH RISK' && (
-               <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                 <button className="btn btn-primary">Call Back on Known Number</button>
-                 <button className="btn btn-outline">Use Family Code Word</button>
-               </div>
-            )}
-          </>
+          </div>
         )}
+
+        {/* Degraded Mode Banner */}
+        {pipelineState && isDegraded && (
+          <div className="degradation-banner animate-fade-up">
+            ⚠️ <strong>Reduced Confidence Mode</strong> — One or more AI services are unreachable. Relying on local keyword analysis only.
+          </div>
+        )}
+
+        {/* High Risk CTA */}
+        {pipelineState && status === 'HIGH RISK' && (
+          <div className="high-risk-actions animate-fade-up">
+            <p>🚨 Suspected AI voice scam detected. Take action:</p>
+            <button className="btn btn-primary">📞 Call Back on Known Number</button>
+            <button className="btn btn-outline">🔑 Use Your Family Code Word</button>
+          </div>
+        )}
+
       </main>
 
-      {/* Privacy Hardening */}
-      <footer style={{ marginTop: 'auto', padding: '20px', textAlign: 'center', borderTop: '1px solid var(--color-gray-200)' }}>
-        <p style={{ fontSize: '12px', color: 'var(--color-gray-500)', margin: 0 }}>
-          🔒 <strong>Privacy First:</strong> VoiceGuard processes audio in volatile memory only. No audio is ever stored to disk or transmitted to unauthorized third parties. Audio chunks are instantly deleted after analysis.
-        </p>
+      {/* ── Privacy Footer ── */}
+      <footer className="privacy-footer">
+        <p>🔒 <strong style={{ color: 'rgba(255,255,255,0.5)' }}>Privacy First</strong> — Audio is processed in volatile memory only and instantly discarded after analysis. Nothing is stored.</p>
       </footer>
+
     </div>
   )
 }

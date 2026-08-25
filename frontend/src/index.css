@@ -1,31 +1,25 @@
 /* ============================================
-   VoiceGuard Design System
+   VoiceGuard Design System — Day 23 UX Polish
    Inspired by: afriworket.com
    Fonts: Playfair Display + Poppins
+   Mode: Dark Glassmorphism
    Primary: Rose/Crimson #f43f5e
    ============================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Poppins:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Poppins:wght@300;400;500;600;700&display=swap');
 
 /* ── CSS Custom Properties ── */
 :root {
-  /* Typography */
   --font-display: 'Playfair Display', 'Times New Roman', serif;
   --font-body:    'Poppins', 'Arial', sans-serif;
 
-  /* Primary Palette — Rose/Crimson (from afriworket.com) */
   --color-primary-50:  #fff1f2;
   --color-primary-100: #ffe4e6;
-  --color-primary-200: #fecdd3;
-  --color-primary-300: #fda4af;
   --color-primary-400: #fb7185;
-  --color-primary-500: #f43f5e;   /* ← main brand color */
+  --color-primary-500: #f43f5e;
   --color-primary-600: #e11d48;
   --color-primary-700: #be123c;
-  --color-primary-800: #9f1239;
-  --color-primary-900: #881337;
 
-  /* Neutral Gray Scale (from afriworket.com) */
   --color-gray-50:  #f9fafb;
   --color-gray-100: #f3f4f6;
   --color-gray-200: #e5e7eb;
@@ -38,39 +32,39 @@
   --color-gray-900: #111827;
   --color-gray-950: #030712;
 
-  /* Risk Semantic Colors — VoiceGuard specific */
-  --risk-green:         #16a34a;
-  --risk-green-light:   #dcfce7;
-  --risk-green-mid:     #4ade80;
-  --risk-green-border:  #86efac;
+  --risk-green:         #22c55e;
+  --risk-green-light:   rgba(34,197,94,0.12);
+  --risk-green-border:  rgba(34,197,94,0.35);
+  --risk-green-glow:    rgba(34,197,94,0.4);
 
-  --risk-yellow:        #d97706;
-  --risk-yellow-light:  #fef3c7;
-  --risk-yellow-mid:    #fbbf24;
-  --risk-yellow-border: #fcd34d;
+  --risk-yellow:        #f59e0b;
+  --risk-yellow-light:  rgba(245,158,11,0.12);
+  --risk-yellow-border: rgba(245,158,11,0.35);
+  --risk-yellow-glow:   rgba(245,158,11,0.4);
 
-  --risk-red:           #f43f5e;    /* = primary-500 — intentional */
-  --risk-red-light:     #fff1f2;
-  --risk-red-mid:       #fb7185;
-  --risk-red-border:    #fda4af;
+  --risk-red:           #f43f5e;
+  --risk-red-light:     rgba(244,63,94,0.12);
+  --risk-red-border:    rgba(244,63,94,0.35);
+  --risk-red-glow:      rgba(244,63,94,0.5);
 
-  /* Layout Tokens */
-  --radius-xs:   4px;
-  --radius-sm:   6px;
-  --radius-md:   12px;
-  --radius-lg:   20px;
-  --radius-xl:   28px;
+  /* Glass */
+  --glass-bg:      rgba(255,255,255,0.05);
+  --glass-border:  rgba(255,255,255,0.12);
+  --glass-blur:    blur(20px);
+
+  --radius-sm:   8px;
+  --radius-md:   16px;
+  --radius-lg:   24px;
+  --radius-xl:   32px;
   --radius-full: 9999px;
 
-  --shadow-sm:  0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md:  0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg:  0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  --shadow-xl:  0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-glow-red:    0 0 40px rgba(244,63,94,0.25);
+  --shadow-glow-yellow: 0 0 40px rgba(245,158,11,0.25);
+  --shadow-glow-green:  0 0 40px rgba(34,197,94,0.2);
 
-  /* Transition */
-  --transition-fast:   150ms ease;
-  --transition-normal: 250ms ease;
-  --transition-slow:   400ms ease;
+  --transition-fast:   150ms cubic-bezier(0.4,0,0.2,1);
+  --transition-normal: 300ms cubic-bezier(0.4,0,0.2,1);
+  --transition-slow:   500ms cubic-bezier(0.4,0,0.2,1);
 }
 
 /* ── Base Reset ── */
@@ -80,39 +74,64 @@
   padding: 0;
 }
 
-html, body {
+html, body, #root {
+  height: 100%;
+}
+
+body {
   font-family: var(--font-body);
   font-size: 16px;
   line-height: 1.6;
-  color: var(--color-gray-900);
-  background-color: var(--color-gray-50);
+  color: #fff;
+  background: #0a0a12;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
-/* ── Typography ── */
-h1, h2, h3, .display {
-  font-family: var(--font-display);
-  font-weight: 700;
-  line-height: 1.2;
+/* ── Background Gradient Orbs ── */
+body::before, body::after {
+  content: '';
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(80px);
+  z-index: 0;
+  pointer-events: none;
+}
+body::before {
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, rgba(244,63,94,0.15) 0%, transparent 70%);
+  top: -100px; left: -100px;
+}
+body::after {
+  width: 350px; height: 350px;
+  background: radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%);
+  bottom: -80px; right: -80px;
 }
 
-h1 { font-size: clamp(28px, 5vw, 40px); }
-h2 { font-size: clamp(22px, 4vw, 30px); }
-h3 { font-size: clamp(18px, 3vw, 22px); }
-
-p, label, span {
-  font-family: var(--font-body);
+/* ── App Container ── */
+.app-container {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
 }
 
-/* ── App Shell ── */
+/* ── Header ── */
 .app-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
-  background: #fff;
-  border-bottom: 1px solid var(--color-gray-200);
+  padding: 20px 24px;
+  background: rgba(10,10,18,0.8);
+  backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid var(--glass-border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .app-logo {
@@ -120,12 +139,68 @@ p, label, span {
   font-size: 22px;
   font-weight: 700;
   font-style: italic;
-  color: var(--color-gray-900);
+  color: #fff;
+  letter-spacing: -0.3px;
 }
 
 .app-logo .shield {
-  color: var(--color-primary-500);
   margin-right: 6px;
+  filter: drop-shadow(0 0 8px rgba(244,63,94,0.6));
+}
+
+/* ── Main Content ── */
+.main-content {
+  flex: 1;
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ── Mic Button ── */
+@keyframes mic-pulse-idle {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(244,63,94,0.5), 0 8px 32px rgba(244,63,94,0.3); }
+  70%       { box-shadow: 0 0 0 18px rgba(244,63,94,0), 0 8px 32px rgba(244,63,94,0.3); }
+}
+@keyframes mic-pulse-active {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(244,63,94,0.7), 0 8px 40px rgba(244,63,94,0.5); }
+  50%       { box-shadow: 0 0 0 24px rgba(244,63,94,0), 0 8px 40px rgba(244,63,94,0.5); transform: scale(1.04); }
+}
+
+.mic-button {
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-primary-500), var(--color-primary-700));
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  animation: mic-pulse-idle 2.5s ease-in-out infinite;
+  transition: transform var(--transition-normal), background var(--transition-normal);
+  position: relative;
+}
+
+.mic-button::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(244,63,94,0.6), rgba(99,102,241,0.4));
+  z-index: -1;
+  filter: blur(8px);
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+}
+
+.mic-button:hover::before { opacity: 1; }
+.mic-button:hover { transform: scale(1.05); }
+
+.mic-button.listening {
+  animation: mic-pulse-active 1.2s ease-in-out infinite;
+  background: linear-gradient(135deg, #e11d48, #9f1239);
 }
 
 /* ── Risk Meter ── */
@@ -133,59 +208,100 @@ p, label, span {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  padding: 28px 20px;
+  border-radius: var(--radius-xl);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: var(--glass-blur);
+  transition: all var(--transition-slow);
+  position: relative;
+  overflow: hidden;
+}
+
+.risk-meter-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-xl);
+  opacity: 0.08;
+  transition: opacity var(--transition-slow);
+  pointer-events: none;
+}
+
+.risk-meter--green { 
+  border-color: var(--risk-green-border);
+  box-shadow: var(--shadow-glow-green);
+}
+.risk-meter--green::before { background: var(--risk-green); opacity: 0.1; }
+
+.risk-meter--yellow { 
+  border-color: var(--risk-yellow-border);
+  box-shadow: var(--shadow-glow-yellow);
+}
+.risk-meter--yellow::before { background: var(--risk-yellow); opacity: 0.1; }
+
+.risk-meter--red { 
+  border-color: var(--risk-red-border);
+  box-shadow: var(--shadow-glow-red);
+}
+.risk-meter--red::before { background: var(--risk-red); opacity: 0.12; }
+
+@keyframes score-pop {
+  0%   { transform: scale(0.85); opacity: 0; }
+  60%  { transform: scale(1.06); }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 .risk-score {
   font-family: var(--font-body);
-  font-size: 52px;
+  font-size: 72px;
   font-weight: 700;
   line-height: 1;
+  letter-spacing: -2px;
+  animation: score-pop 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
 }
 
 .risk-label {
   font-family: var(--font-body);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
+  opacity: 0.85;
 }
 
-.risk-meter--green .risk-score { color: var(--risk-green); }
+.risk-meter--green .risk-score,
 .risk-meter--green .risk-label { color: var(--risk-green); }
-.risk-meter--yellow .risk-score { color: var(--risk-yellow); }
+.risk-meter--yellow .risk-score,
 .risk-meter--yellow .risk-label { color: var(--risk-yellow); }
-.risk-meter--red .risk-score { color: var(--risk-red); }
+.risk-meter--red .risk-score,
 .risk-meter--red .risk-label { color: var(--risk-red); }
 
 /* ── Transcript Card ── */
 .transcript-card {
-  background: #fff;
-  border: 1px solid var(--color-gray-200);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   padding: 20px;
-  box-shadow: var(--shadow-sm);
+  backdrop-filter: var(--glass-blur);
 }
 
 .transcript-card h4 {
   font-family: var(--font-body);
   font-weight: 600;
-  font-size: 14px;
-  color: var(--color-gray-700);
-  margin-bottom: 12px;
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.4);
+  margin-bottom: 10px;
 }
 
 .transcript-text {
-  font-size: 14px;
-  color: var(--color-gray-500);
-  line-height: 1.7;
-}
-
-.transcript-highlight {
-  background: var(--risk-yellow-light);
-  color: var(--risk-yellow);
-  border-radius: var(--radius-xs);
-  padding: 1px 4px;
+  font-size: 15px;
+  color: rgba(255,255,255,0.85);
+  line-height: 1.8;
+  font-style: italic;
 }
 
 /* ── Risk Signal Tags ── */
@@ -196,9 +312,10 @@ p, label, span {
   padding: 5px 12px;
   border-radius: var(--radius-full);
   font-family: var(--font-body);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   border: 1px solid;
+  transition: all var(--transition-fast);
 }
 
 .risk-tag--green {
@@ -206,13 +323,11 @@ p, label, span {
   color: var(--risk-green);
   border-color: var(--risk-green-border);
 }
-
 .risk-tag--yellow {
   background: var(--risk-yellow-light);
   color: var(--risk-yellow);
   border-color: var(--risk-yellow-border);
 }
-
 .risk-tag--red {
   background: var(--risk-red-light);
   color: var(--risk-red);
@@ -221,7 +336,7 @@ p, label, span {
 
 /* ── Buttons ── */
 .btn {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
@@ -229,87 +344,94 @@ p, label, span {
   font-size: 15px;
   font-weight: 600;
   border-radius: var(--radius-full);
-  padding: 14px 28px;
-  border: 2px solid transparent;
+  padding: 15px 28px;
+  border: none;
   cursor: pointer;
   transition: all var(--transition-normal);
-  text-decoration: none;
+  width: 100%;
 }
 
 .btn-primary {
-  background: var(--color-primary-500);
+  background: linear-gradient(135deg, var(--color-primary-500), var(--color-primary-700));
   color: #fff;
-  border-color: var(--color-primary-500);
+  box-shadow: 0 4px 20px rgba(244,63,94,0.4);
 }
-
 .btn-primary:hover {
-  background: var(--color-primary-600);
-  border-color: var(--color-primary-600);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(244,63,94,0.5);
 }
 
 .btn-outline {
-  background: transparent;
-  color: var(--color-primary-500);
-  border-color: var(--color-primary-500);
+  background: var(--glass-bg);
+  color: #fff;
+  border: 1px solid var(--glass-border) !important;
+  backdrop-filter: var(--glass-blur);
 }
-
 .btn-outline:hover {
-  background: var(--color-primary-50);
+  background: rgba(255,255,255,0.1);
+  transform: translateY(-2px);
 }
 
-.btn-ghost {
-  background: transparent;
-  color: var(--color-gray-500);
-  border-color: transparent;
+/* ── CTA Alert Section ── */
+@keyframes alert-slide-in {
+  from { transform: translateY(16px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
 }
 
-/* ── Waveform Bars ── */
-.waveform {
+.high-risk-actions {
+  animation: alert-slide-in 0.4s ease both;
   display: flex;
-  align-items: center;
-  gap: 3px;
-  height: 40px;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border-radius: var(--radius-lg);
+  background: var(--risk-red-light);
+  border: 1px solid var(--risk-red-border);
 }
 
-.waveform-bar {
-  width: 4px;
-  background: var(--color-primary-400);
-  border-radius: 2px;
-  animation: wave 1.2s ease-in-out infinite;
+.high-risk-actions p {
+  font-size: 13px;
+  color: var(--risk-red);
+  font-weight: 500;
+  text-align: center;
+  margin-bottom: 4px;
 }
 
-@keyframes wave {
-  0%, 100% { height: 8px; }
-  50%       { height: 32px; }
+/* ── Degradation Banner ── */
+.degradation-banner {
+  padding: 12px 16px;
+  background: rgba(245,158,11,0.1);
+  border: 1px solid rgba(245,158,11,0.3);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  color: var(--risk-yellow);
 }
 
-/* ── Mic Pulse ── */
-@keyframes mic-pulse {
-  0%   { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.4); }
-  70%  { box-shadow: 0 0 0 20px rgba(244, 63, 94, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
+/* ── Footer ── */
+.privacy-footer {
+  padding: 20px 24px;
+  text-align: center;
+  border-top: 1px solid var(--glass-border);
+  margin-top: auto;
 }
 
-.mic-button {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  background: var(--color-primary-500);
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: mic-pulse 2s ease-in-out infinite;
-  transition: transform var(--transition-normal);
+.privacy-footer p {
+  font-size: 11px;
+  color: rgba(255,255,255,0.3);
+  line-height: 1.7;
 }
 
-.mic-button:hover {
-  transform: scale(1.05);
+/* ── Animations ── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.85); }
 }
 
-.mic-button.listening {
-  animation: mic-pulse 1s ease-in-out infinite;
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-up {
+  animation: fade-in-up 0.35s ease both;
 }
