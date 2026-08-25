@@ -29,10 +29,11 @@ function App() {
   const recordingIntervalRef = useRef(null)
   const demoIntervalRef = useRef(null)
 
-  const API_URL = 'http://localhost:3001/api/stream'
-  const STREAM_RESET_URL = 'http://localhost:3001/api/stream/reset'
-  const DEMO_RESET_URL = 'http://localhost:3001/api/demo/reset'
-  const DEMO_NEXT_URL = 'http://localhost:3001/api/demo/next'
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'
+  const API_URL = `${API_BASE}/api/stream`
+  const STREAM_RESET_URL = `${API_BASE}/api/stream/reset`
+  const DEMO_RESET_URL = `${API_BASE}/api/demo/reset`
+  const DEMO_NEXT_URL = `${API_BASE}/api/demo/next`
   const CHUNK_DURATION_MS = Number(import.meta.env.VITE_CHUNK_DURATION_MS) || 4000
   
   const combinedText = (fullTranscript + " " + interimTranscript).trim()
