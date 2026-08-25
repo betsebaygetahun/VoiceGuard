@@ -418,10 +418,6 @@ function App() {
         </div>
       </div>
 
-      <footer>
-        VoiceGuard prototype · <span className="footer-flag">Day 27</span> · Connected Backend Mode
-      </footer>
-
     </div>
   )
 }
