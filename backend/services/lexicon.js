@@ -55,6 +55,7 @@ const LEXICON = {
   function analyzeLanguageRisk(transcript) {
     const text = transcript.toLowerCase();
     const tags = new Set();
+    const reasons = new Set();
     let score = 0;
   
     // Weight per hit
@@ -63,6 +64,7 @@ const LEXICON = {
     for (const phrase of LEXICON.urgency) {
       if (text.includes(phrase)) {
         tags.add("Urgency");
+        reasons.add(`Detected urgent language: "${phrase}"`);
         score += weightPerHit;
       }
     }
@@ -70,6 +72,7 @@ const LEXICON = {
     for (const phrase of LEXICON.secrecy) {
       if (text.includes(phrase)) {
         tags.add("Secrecy");
+        reasons.add(`Detected secrecy request: "${phrase}"`);
         score += weightPerHit;
       }
     }
@@ -77,8 +80,19 @@ const LEXICON = {
     for (const phrase of LEXICON.payment) {
       if (text.includes(phrase)) {
         tags.add("Payment");
+        reasons.add(`Detected payment demand: "${phrase}"`);
         score += weightPerHit;
       }
+    }
+
+    // Co-occurrence logic: Scams rarely just use one category.
+    // If multiple categories are hit, apply a risk multiplier.
+    if (tags.size === 2) {
+      score *= 1.5; // 50% penalty for double category
+      reasons.add("Multiple scam indicators detected simultaneously.");
+    } else if (tags.size >= 3) {
+      score *= 2.0; // 100% penalty for full trifecta
+      reasons.add("High confidence scam pattern (Urgency + Secrecy + Payment) detected.");
     }
   
     // Cap score at 100
@@ -86,7 +100,8 @@ const LEXICON = {
   
     return {
       tags: Array.from(tags),
-      score: score
+      reasons: Array.from(reasons),
+      score: Math.round(score)
     };
   }
   
