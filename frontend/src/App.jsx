@@ -6,12 +6,18 @@ function App() {
   const [isListening, setIsListening] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [micError, setMicError] = useState(null)
+  const [isDemoMode, setIsDemoMode] = useState(false)
+  const [demoStep, setDemoStep] = useState(0)
+  const [demoDone, setDemoDone] = useState(false)
 
   const mediaRecorderRef = useRef(null)
   const streamRef = useRef(null)
   const recordingIntervalRef = useRef(null)
+  const demoIntervalRef = useRef(null)
 
   const API_URL = 'http://localhost:3001/api/stream'
+  const DEMO_RESET_URL = 'http://localhost:3001/api/demo/reset'
+  const DEMO_NEXT_URL = 'http://localhost:3001/api/demo/next'
 
   const startRecording = async () => {
     try {
@@ -66,6 +72,44 @@ function App() {
     }
   }
 
+  // ── Demo Mode ──
+  const startDemo = async () => {
+    await fetch(DEMO_RESET_URL)
+    setIsDemoMode(true)
+    setIsListening(true)
+    setDemoStep(0)
+    setDemoDone(false)
+    setPipelineState(null)
+
+    // Advance one step every 4 seconds
+    const advance = async () => {
+      setIsProcessing(true)
+      const res = await fetch(DEMO_NEXT_URL)
+      const data = await res.json()
+      setIsProcessing(false)
+      if (data.done) {
+        setDemoDone(true)
+        setIsListening(false)
+        clearInterval(demoIntervalRef.current)
+        return
+      }
+      setDemoStep(data.step)
+      setPipelineState(data)
+    }
+
+    await advance() // Show first step immediately
+    demoIntervalRef.current = setInterval(advance, 4000)
+  }
+
+  const stopDemo = () => {
+    clearInterval(demoIntervalRef.current)
+    setIsDemoMode(false)
+    setIsListening(false)
+    setDemoStep(0)
+    setDemoDone(false)
+    setPipelineState(null)
+  }
+
   const uploadChunk = async (blob) => {
     try {
       const formData = new FormData()
@@ -112,29 +156,62 @@ function App() {
       {/* ── Main ── */}
       <main className="main-content">
 
-        {/* Mic Button Section */}
+        {/* Mic + Demo Buttons */}
         <div style={{ textAlign: 'center', paddingTop: '8px' }}>
           <button
-            className={`mic-button ${isListening ? 'listening' : ''}`}
-            onClick={() => isListening ? stopRecording() : startRecording()}
+            className={`mic-button ${isListening && !isDemoMode ? 'listening' : ''}`}
+            onClick={() => isListening && !isDemoMode ? stopRecording() : !isListening && !isDemoMode ? startRecording() : null}
+            disabled={isDemoMode}
             aria-label={isListening ? 'Stop monitoring' : 'Start monitoring'}
+            style={{ opacity: isDemoMode ? 0.4 : 1 }}
           >
-            {isListening ? '⏹' : '🎤'}
+            {isListening && !isDemoMode ? '⏹' : '🎤'}
           </button>
 
           <p style={{ marginTop: '16px', fontSize: '14px', color: 'rgba(255,255,255,0.5)', fontWeight: 500 }}>
             {isProcessing
               ? '⏳ Analyzing chunk...'
+              : isDemoMode && demoDone
+              ? '✅ Demo complete — click Reset to replay'
+              : isDemoMode
+              ? `🎬 Demo — Step ${demoStep} of 3`
               : isListening
               ? 'Listening to live call...'
-              : 'Tap to start live monitoring'}
+              : 'Tap mic to start monitoring'}
           </p>
 
           {micError && (
-            <p style={{ marginTop: '10px', color: '#f43f5e', fontSize: '13px' }}>
-              ⚠ {micError}
-            </p>
+            <p style={{ marginTop: '10px', color: '#f43f5e', fontSize: '13px' }}>⚠ {micError}</p>
           )}
+
+          {/* Demo Mode Controls */}
+          <div style={{ marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            {!isDemoMode ? (
+              <button
+                onClick={startDemo}
+                disabled={isListening}
+                style={{
+                  padding: '10px 22px', borderRadius: '999px', border: '1px solid rgba(99,102,241,0.5)',
+                  background: 'rgba(99,102,241,0.1)', color: '#a5b4fc', cursor: 'pointer',
+                  fontSize: '13px', fontWeight: 600, fontFamily: 'inherit',
+                  opacity: isListening ? 0.4 : 1
+                }}
+              >
+                🎬 Run Guided Demo
+              </button>
+            ) : (
+              <button
+                onClick={stopDemo}
+                style={{
+                  padding: '10px 22px', borderRadius: '999px', border: '1px solid rgba(244,63,94,0.4)',
+                  background: 'rgba(244,63,94,0.1)', color: '#fda4af', cursor: 'pointer',
+                  fontSize: '13px', fontWeight: 600, fontFamily: 'inherit'
+                }}
+              >
+                ✕ Stop Demo
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Risk Meter */}

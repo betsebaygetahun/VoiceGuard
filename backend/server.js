@@ -15,7 +15,9 @@ app.use(morgan('dev'));
 
 // Routes
 const streamRoutes = require('./routes/stream');
+const demoRoutes = require('./routes/demo');
 app.use('/api', streamRoutes);
+app.use('/api', demoRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
