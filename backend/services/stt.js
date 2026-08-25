@@ -13,9 +13,14 @@ const MODEL = 'nova-3';
  * Transcribes an audio buffer using Deepgram API
  * 
  * @param {Buffer} audioBuffer 
+ * @param {string} mimeType - the ACTUAL encoding of audioBuffer (e.g. 'audio/webm', 'audio/wav').
+ *   BUGFIX (Day 28): this used to be hardcoded to 'audio/wav' regardless of what the
+ *   browser actually recorded (Chrome's MediaRecorder defaults to audio/webm;codecs=opus).
+ *   Telling Deepgram the wrong encoding silently degrades or breaks transcription —
+ *   it was never caught because smoke tests used real .wav files, not live mic chunks.
  * @returns {Object} { transcript, confidence, latency_ms }
  */
-async function transcribeChunk(audioBuffer) {
+async function transcribeChunk(audioBuffer, mimeType = 'audio/webm') {
   if (!DEEPGRAM_API_KEY) {
     throw new Error('DEEPGRAM_API_KEY is missing in environment');
   }
@@ -29,7 +34,7 @@ async function transcribeChunk(audioBuffer) {
         method: 'POST',
         headers: {
           'Authorization': `Token ${DEEPGRAM_API_KEY}`,
-          'Content-Type': 'audio/wav',
+          'Content-Type': mimeType,
         },
         body: audioBuffer,
       }

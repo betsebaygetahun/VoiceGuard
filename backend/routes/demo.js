@@ -28,12 +28,16 @@ const DEMO_SCRIPT = [
       latency_ms: 290
     },
     language_risk: {
-      tags: ['Secrecy'],
-      reasons: ['Detected secrecy request: "is anyone else home"'],
-      score: 15
+      tags: ['Urgency', 'Secrecy'],
+      reasons: [
+        'Detected urgent language: "right now"',
+        'Detected secrecy request: "is anyone else home"',
+        'Multiple scam indicators detected simultaneously.'
+      ],
+      score: 45
     },
     fusion: {
-      total_risk_score: 39,
+      total_risk_score: 51,
       status: 'CAUTION',
       total_latency_ms: 602
     }

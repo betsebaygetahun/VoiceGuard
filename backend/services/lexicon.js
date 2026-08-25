@@ -28,7 +28,11 @@ const LEXICON = {
       "don't let anyone know",
       "promise not to tell",
       "our little secret",
-      "they can't know"
+      "they can't know",
+      "is anyone else home",
+      "is anyone else there",
+      "are you alone",
+      "who else is home"
     ],
     payment: [
       "send money",

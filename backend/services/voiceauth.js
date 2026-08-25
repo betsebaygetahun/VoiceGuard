@@ -13,9 +13,13 @@ const DETECT_ENDPOINT = 'https://detect.resemble.ai/detect';
  * Analyzes an audio buffer for synthetic voice probability
  * 
  * @param {Buffer} audioBuffer 
- * @returns {Object} { score: 0-100 (100 = most suspicious), label: 'bonafide' | 'spoof', latency_ms }
+ * @param {string} mimeType - the ACTUAL encoding of audioBuffer.
+ *   BUGFIX (Day 28): this used to hardcode 'audio/wav' regardless of the real
+ *   encoding — same root cause as the STT bug. Browser mic chunks are WebM/Opus,
+ *   not WAV, so Resemble was being told the wrong format on every live chunk.
+ * @returns {Object} { score: 0-100 (100 = most suspicious), label: 'bonafide' | 'spoof' | 'unknown' | 'error', latency_ms }
  */
-async function detectVoice(audioBuffer) {
+async function detectVoice(audioBuffer, mimeType = 'audio/webm') {
   if (!RESEMBLE_API_KEY) {
     throw new Error('RESEMBLE_API_KEY is missing in environment');
   }
@@ -26,10 +30,12 @@ async function detectVoice(audioBuffer) {
     // Dynamic import for node-fetch FormData if needed, but modern Node has FormData globally
     const FormDataClass = globalThis.FormData || (await import('node-fetch')).FormData;
     const form = new FormDataClass();
-    
-    // Convert Buffer to Blob for FormData
-    const audioBlob = new Blob([audioBuffer], { type: 'audio/wav' });
-    form.append('file', audioBlob, 'chunk.wav');
+
+    // Convert Buffer to Blob for FormData, using the real mime type and a matching filename
+    // extension — some detection APIs infer encoding from the filename as a fallback.
+    const extension = mimeType.includes('webm') ? 'webm' : mimeType.includes('wav') ? 'wav' : 'bin';
+    const audioBlob = new Blob([audioBuffer], { type: mimeType });
+    form.append('file', audioBlob, `chunk.${extension}`);
 
     const response = await fetch(DETECT_ENDPOINT, {
       method: 'POST',

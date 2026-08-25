@@ -10,6 +10,14 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 // Dummy tracking variables to simulate a continuous call
 let chunkCounter = 0;
+let sessionTranscript = '';
+
+router.post('/stream/reset', (req, res) => {
+  chunkCounter = 0;
+  sessionTranscript = '';
+  console.log('[Stream] Session reset — chunk counter and accumulated transcript cleared.');
+  res.status(200).json({ message: 'Session reset.' });
+});
 
 /**
  * POST /api/stream
@@ -30,9 +38,14 @@ router.post('/stream', upload.single('chunk'), async (req, res) => {
 
     // 1. Run STT and Voice Auth APIs in parallel if audio provided
     if (req.file && req.file.buffer) {
+      // BUGFIX (Day 28): pass the browser's real mimetype (multer already captures it
+      // from the upload) through to both APIs instead of silently assuming WAV.
+      // Chrome's MediaRecorder defaults to 'audio/webm' — telling Deepgram/Resemble
+      // it's WAV when it's actually WebM was degrading real-world accuracy.
+      const chunkMimeType = req.file.mimetype || 'audio/webm';
       [sttResult, authResult] = await Promise.all([
-        transcribeChunk(req.file.buffer),
-        detectVoice(req.file.buffer)
+        transcribeChunk(req.file.buffer, chunkMimeType),
+        detectVoice(req.file.buffer, chunkMimeType)
       ]);
 
       // ────────────────────────────────────────────────────────
@@ -50,8 +63,12 @@ router.post('/stream', upload.single('chunk'), async (req, res) => {
       authResult = { score: 50, label: 'bonafide', latency_ms: 0 };
     }
 
-    // 2. Run real Lexicon and Fusion logic with LIVE transcript & auth score
-    const finalPayload = calculateFusion(sttResult.transcript, authResult.score, chunkCounter);
+    if (sttResult.transcript) {
+      sessionTranscript = (sessionTranscript + ' ' + sttResult.transcript).trim();
+    }
+
+    // 2. Run real Lexicon and Fusion logic against the FULL accumulated transcript
+    const finalPayload = calculateFusion(sessionTranscript, authResult.score, chunkCounter);
     
     // Override fusion blocks with actual metrics
     finalPayload.stt = sttResult;
