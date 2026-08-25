@@ -14,7 +14,6 @@ const LEXICON = {
       "in trouble",
       "asap",
       "hospital",
-      "accident",
       "police",
       "jail",
       "arrested",
