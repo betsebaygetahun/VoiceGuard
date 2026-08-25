@@ -4,6 +4,7 @@ import './index.css'
 function App() {
   const [pipelineState, setPipelineState] = useState(null)
   const [isListening, setIsListening] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false) // BUG-01 fix: track chunk processing
   const [micError, setMicError] = useState(null)
   
   const mediaRecorderRef = useRef(null)
@@ -34,7 +35,9 @@ function App() {
         recorder.onstop = async () => {
           if (audioChunks.length === 0) return
           const audioBlob = new Blob(audioChunks, { type: 'audio/webm' })
+          setIsProcessing(true) // BUG-01 fix: signal chunk is in flight
           await uploadChunk(audioBlob)
+          setIsProcessing(false)
         }
 
         recorder.start()
@@ -111,12 +114,23 @@ function App() {
       <header className="app-header">
         <h1 className="app-logo"><span className="shield">🛡️</span> VoiceGuard</h1>
         {isListening && (
-          <span className={`risk-tag risk-tag--${
-            status === 'SAFE' ? 'green' : 
-            status === 'CAUTION' ? 'yellow' : 'red'
-          }`}>
-            {status}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* BUG-01 fix: show pulsing dot while processing instead of flickering the whole UI */}
+            {isProcessing && (
+              <span style={{
+                width: '8px', height: '8px', borderRadius: '50%',
+                backgroundColor: '#f59e0b',
+                display: 'inline-block',
+                animation: 'pulse 1s infinite'
+              }} title="Analyzing chunk..." />
+            )}
+            <span className={`risk-tag risk-tag--${
+              status === 'SAFE' ? 'green' : 
+              status === 'CAUTION' ? 'yellow' : 'red'
+            }`}>
+              {status}
+            </span>
+          </div>
         )}
       </header>
       
@@ -130,7 +144,7 @@ function App() {
              🎤
            </button>
            <p style={{ marginTop: '12px', color: 'var(--color-gray-500)' }}>
-             {isListening ? 'Listening to call...' : 'Tap to start live monitoring'}
+             {isProcessing ? '⏳ Analyzing chunk...' : isListening ? 'Listening to call...' : 'Tap to start live monitoring'}
            </p>
            {micError && <p style={{ color: 'var(--risk-red)', marginTop: '8px', fontSize: '14px' }}>{micError}</p>}
         </div>
